@@ -1,0 +1,1193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Avengers — Outbound Set Performance</title>
+<style>
+/* ===========================================================================
+   Palette. Dark is a deliberate commit (the design reference is dark), so
+   every surface and ink is painted explicitly rather than inherited.
+
+   Data colors are NOT decorative — they were validated with the dataviz
+   palette checker against this surface (dark, OKLCH lightness band + chroma
+   floor + CVD separation + contrast):
+     Sale  #00B151 / DNS #EC6400 / non-issue #9C3FFF  -> ALL PASS
+     trend Sets #FF0F6B / Issued #EC6400 (2 series)   -> ALL PASS
+   The CVD warn on green<->orange sits in the 6-8 floor band, which is legal
+   with secondary encoding: every bar here carries a direct text label.
+   Do not swap these for prettier hues without re-running the validator.
+   =========================================================================== */
+/* Accents are ROLE names, not literal colours: --accent-2 is amber in
+   Nightshade and teal in Synthwave. The legacy --magenta/--amber aliases below
+   are kept so the rest of the sheet needed no rewrite. */
+:root,:root[data-theme="nightshade"]{
+  --bg:#150e1d;
+  --bg-glow:#2a1236;
+  --bg-glow-2:#331036;
+  --pop:#241a30;
+  --line:rgba(255,255,255,.075);
+  --line-2:rgba(255,255,255,.13);
+  --ink:#f0eaf5;
+  --ink-2:#bcaecb;
+  --muted:#8d7f9d;
+
+  --accent:#ff0f6b;
+  --accent-deep:#e5184f;
+  --accent-2:#ec6400;
+  --accent-2-lift:#ff8c2b;
+  --on-accent-2:#1b0d02;
+
+  /* DATA MARKS — validated, not decorative. See the header comment. */
+  --d-sets:#FF0F6B;
+  --d-issued:#EC6400;
+  --d-sale:#00B151;
+  --d-dns:#EC6400;
+  --d-other:#9C3FFF;
+  --pos:#00b151;
+  --neg:#ff0f6b;
+
+  --radius:14px;
+  --magenta:var(--accent);
+  --magenta-deep:var(--accent-deep);
+  --amber:var(--accent-2);
+  --amber-lift:var(--accent-2-lift);
+  --green:var(--pos);
+  --violet:var(--d-other);
+}
+
+/* ---- Dusk: ffb997 / f67e7d / 843b62 / 0b032d / 74546a -------------------
+   Data marks validated against this theme's card surface #160E36:
+     outcome #3EA07A,#CE7A3E,#A24C7C -> ALL PASS (CVD dE 8.2)
+     trend   #EA5E54,#3EA07A         -> ALL PASS (CVD dE 8.0)
+   The palette is entirely warm, so it cannot supply a third separable hue —
+   the jade is added deliberately, and the Issued line uses it rather than the
+   peach (peach vs coral fails CVD separation outright). */
+:root[data-theme="dusk"]{
+  --bg:#0b032d;
+  --bg-glow:#2b1146;
+  --bg-glow-2:#3d1440;
+  --pop:#1d1040;
+  --line:rgba(255,255,255,.085);
+  --line-2:rgba(255,255,255,.16);
+  --ink:#f8eee9;
+  --ink-2:#d9c2ca;
+  --muted:#9d8798;
+
+  --accent:#f67e7d;
+  --accent-deep:#843b62;
+  --accent-2:#ffb997;
+  --accent-2-lift:#ffd3bb;
+  --on-accent-2:#3d1420;
+
+  --d-sets:#EA5E54;
+  --d-issued:#3EA07A;
+  --d-sale:#3EA07A;
+  --d-dns:#CE7A3E;
+  --d-other:#A24C7C;
+  --pos:#3EA07A;
+  --neg:#f67e7d;
+}
+
+/* ---- Synthwave: 3B0855 / 852467 / FD8083 / EE227D / 498099 / 30C0B7 -----
+   Data marks validated against this theme's card surface #2A0A45:
+     outcome #06A6AE,#E0666A,#9C4ED0 -> ALL PASS (CVD dE 11.4)
+     trend   #EE227A,#06A6AE         -> ALL PASS (CVD dE 8.2)
+   The teal doubles as Sale and the Issued line, so it was solved against
+   BOTH the salmon and the hot pink at once. */
+:root[data-theme="synthwave"]{
+  --bg:#1a0330;
+  --bg-glow:#3b0855;
+  --bg-glow-2:#5c1050;
+  --pop:#2a0a45;
+  --line:rgba(255,255,255,.09);
+  --line-2:rgba(255,255,255,.17);
+  --ink:#f4eaff;
+  --ink-2:#c9b3e0;
+  --muted:#9080ab;
+
+  --accent:#ee227d;
+  --accent-deep:#852467;
+  --accent-2:#30c0b7;
+  --accent-2-lift:#5fded4;
+  --on-accent-2:#042c2a;
+
+  --d-sets:#EE227A;
+  --d-issued:#06A6AE;
+  --d-sale:#06A6AE;
+  --d-dns:#E0666A;
+  --d-other:#9C4ED0;
+  --pos:#06A6AE;
+  --neg:#ee227d;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:
+    radial-gradient(1100px 620px at 8% -8%, var(--bg-glow) 0%, transparent 62%),
+    radial-gradient(900px 500px at 100% 0%, var(--bg-glow-2) 0%, transparent 55%),
+    var(--bg);
+  background-attachment:fixed;
+  color:var(--ink);
+  font:14px/1.45 system-ui,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  -webkit-font-smoothing:antialiased;
+  min-height:100vh;
+}
+h1,h2,h3{margin:0;font-weight:650}
+.mono{font-variant-numeric:tabular-nums}
+
+/* ---------- shell ---------- */
+.shell{display:flex;min-height:100vh}
+.rail{
+  width:66px;flex:0 0 66px;background:rgba(0,0,0,.28);
+  border-right:1px solid var(--line);
+  display:flex;flex-direction:column;align-items:center;gap:6px;padding-bottom:18px;
+}
+.logo{
+  width:66px;height:66px;display:grid;place-items:center;
+  background:linear-gradient(150deg,var(--magenta) 0%,var(--magenta-deep) 55%,#a3123f 100%);
+  font-weight:800;font-size:22px;color:#fff;letter-spacing:-.5px;
+}
+.rail button{
+  width:40px;height:40px;margin-top:8px;border:0;border-radius:11px;cursor:pointer;
+  background:transparent;color:var(--muted);display:grid;place-items:center;
+  transition:background .15s,color .15s;
+}
+.rail button:hover{background:rgba(255,255,255,.06);color:var(--ink-2)}
+.rail button.on{background:color-mix(in srgb,var(--accent) 18%,transparent);
+  color:var(--accent)}
+.rail button svg{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:1.7;
+  stroke-linecap:round;stroke-linejoin:round}
+
+.main{flex:1;min-width:0;padding:20px 26px 44px}
+
+/* ---------- header ---------- */
+header{display:flex;align-items:flex-end;gap:20px;flex-wrap:wrap;margin-bottom:20px}
+.brand h1{font-size:25px;letter-spacing:2.5px}
+.brand p{margin:2px 0 0;color:var(--muted);font-size:12px;letter-spacing:.4px}
+.spacer{flex:1}
+.controls{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.pills{display:flex;gap:4px;background:rgba(0,0,0,.26);padding:4px;border-radius:999px;
+  border:1px solid var(--line)}
+.pills button{
+  border:0;background:transparent;color:var(--muted);cursor:pointer;
+  padding:7px 17px;border-radius:999px;font-size:12.5px;font-weight:600;
+  transition:background .15s,color .15s;
+}
+.pills button:hover{color:var(--ink-2)}
+.pills button.on{
+  background:linear-gradient(135deg,var(--accent-2-lift),var(--accent-2));
+  color:var(--on-accent-2);box-shadow:0 3px 14px rgba(0,0,0,.34);
+}
+select.pill,button.pill{
+  appearance:none;cursor:pointer;color:#fff;font-size:12.5px;font-weight:600;
+  padding:8px 34px 8px 16px;border-radius:999px;border:0;
+  background:
+    linear-gradient(135deg,var(--magenta) 0%,var(--magenta-deep) 100%)
+    no-repeat,
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2.4' stroke-linecap='round'><path d='M6 9l6 6 6-6'/></svg>")
+    no-repeat right 12px center/12px;
+  box-shadow:0 3px 14px rgba(229,24,79,.32);
+}
+select.pill option{background:var(--pop);color:#fff}
+button.pill.active{box-shadow:0 0 0 2px rgba(255,255,255,.28),
+  0 3px 14px rgba(229,24,79,.32)}
+
+/* ---------- date range ---------- */
+.dr{position:relative}
+.dr-pop{
+  position:absolute;right:0;top:calc(100% + 8px);z-index:30;width:236px;
+  background:var(--pop);border:1px solid var(--line-2);border-radius:12px;
+  padding:14px;box-shadow:0 18px 40px rgba(0,0,0,.55);text-align:left;
+}
+.dr-pop label{display:block;color:var(--muted);font-size:10.5px;font-weight:700;
+  letter-spacing:1px;text-transform:uppercase;margin-bottom:10px}
+.dr-pop input[type=date]{
+  display:block;width:100%;margin-top:5px;background:var(--bg);color:var(--ink);
+  border:1px solid var(--line-2);border-radius:8px;padding:8px 10px;
+  font-size:12.5px;font-family:inherit;
+  color-scheme:dark;   /* native picker follows the dashboard, not the OS */
+}
+.dr-act{display:flex;gap:8px;margin-top:2px}
+.dr-act button{flex:1;border:0;border-radius:8px;padding:8px;font-size:12px;
+  font-weight:700;cursor:pointer;font-family:inherit}
+.dr-act .ghost{background:rgba(255,255,255,.08);color:var(--ink-2)}
+.dr-act .go{background:linear-gradient(135deg,var(--accent-2-lift),var(--accent-2));
+  color:var(--on-accent-2)}
+.dr-msg{color:var(--neg);font-size:10.5px;margin-top:8px;min-height:12px}
+
+/* ---------- theme swatches ---------- */
+.themes{display:flex;gap:7px;align-items:center}
+.themes button{
+  width:23px;height:23px;border-radius:50%;border:1px solid var(--line-2);
+  padding:0;cursor:pointer;transition:transform .12s;
+}
+.themes button:hover{transform:scale(1.12)}
+.themes button.on{box-shadow:0 0 0 2px var(--ink)}
+.stamp{color:var(--muted);font-size:11.5px;text-align:right;line-height:1.35}
+.stamp b{color:var(--ink-2);font-weight:600}
+
+/* ---------- cards ---------- */
+.grid{display:grid;grid-template-columns:repeat(12,1fr);gap:16px}
+.card{
+  background:linear-gradient(180deg,rgba(255,255,255,.045),rgba(255,255,255,.015));
+  border:1px solid var(--line);border-radius:var(--radius);padding:16px 18px;
+  min-width:0;
+}
+/* h2 lives inside .card-head, so this must NOT be a direct-child selector. */
+.card h2{font-size:14.5px;letter-spacing:.2px;display:flex;align-items:baseline;gap:9px}
+.card h2 .sub{color:var(--muted);font-size:11.5px;font-weight:500;letter-spacing:0}
+.card-head{display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap}
+.card-head .spacer{flex:1}
+
+/* ---------- KPI strip ---------- */
+.kpis{
+  grid-column:span 12;display:grid;gap:0;
+  /* auto-fit, not a hard repeat(5): five fixed tracks clip the last tile on a
+     laptop-width window. This wraps to 3+2 or 2+2+1 instead. */
+  grid-template-columns:repeat(auto-fit,minmax(156px,1fr));
+  background:linear-gradient(180deg,rgba(255,255,255,.05),rgba(255,255,255,.015));
+  border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;
+}
+.kpi{padding:16px 18px;border-right:1px solid var(--line);position:relative;
+  min-width:0;border-top:1px solid transparent}
+.kpi:last-child{border-right:0}
+.kpi .k-label{color:var(--muted);font-size:10.5px;font-weight:700;letter-spacing:1.3px;
+  text-transform:uppercase}
+.kpi .k-row{display:flex;align-items:flex-end;gap:12px;margin-top:9px}
+.kpi .k-val{font-size:29px;font-weight:700;letter-spacing:-.6px;line-height:1}
+.kpi .k-spark{flex:1;min-width:52px;height:34px;opacity:.95}
+.kpi .k-delta{margin-top:8px;font-size:11.5px;font-weight:650;display:flex;
+  align-items:center;gap:5px}
+.kpi .k-foot{margin-top:4px;font-size:10.5px;color:var(--muted);font-weight:500}
+.up{color:var(--pos)} .down{color:var(--neg)} .flat{color:var(--muted)}
+.k-delta .cmp{color:var(--muted);font-weight:500}
+
+/* ---------- leaderboard ---------- */
+/* Two stacked columns rather than six loose cards: the leaderboard and the
+   trend it explains sit together on the left, the three small breakdowns
+   stack beside them. */
+.col-main{grid-column:span 8;display:flex;flex-direction:column;gap:16px;min-width:0}
+.col-side{grid-column:span 4;display:flex;flex-direction:column;gap:16px;min-width:0}
+.col-main>.card,.col-side>.card{margin:0}
+.lb-rows{display:flex;flex-direction:column;gap:3px}
+.lb-row{
+  display:grid;grid-template-columns:40px 34px 1fr 118px 52px 50px 60px;
+  align-items:center;gap:11px;padding:8px 10px;border-radius:10px;
+  transition:background .13s;
+}
+.lb-row:hover{background:rgba(255,255,255,.045)}
+.lb-head{
+  display:grid;grid-template-columns:40px 34px 1fr 118px 52px 50px 60px;
+  gap:11px;padding:0 10px 8px;color:var(--muted);font-size:10.5px;
+  font-weight:700;letter-spacing:.9px;text-transform:uppercase;
+  border-bottom:1px solid var(--line);margin-bottom:6px;
+}
+.rank{font-size:13px;font-weight:700;color:var(--muted);display:flex;
+  flex-direction:column;align-items:center;line-height:1.15}
+.rank .mv{font-size:9.5px;font-weight:700;margin-top:1px}
+.lb-row.top1 .rank,.lb-row.top2 .rank,.lb-row.top3 .rank{color:var(--ink)}
+.av{
+  width:34px;height:34px;border-radius:50%;display:grid;place-items:center;
+  font-size:11.5px;font-weight:700;color:#fff;letter-spacing:.3px;
+  background:linear-gradient(140deg,#4b3560,#33243f);border:1px solid var(--line-2);
+}
+/* Podium rings are theme tokens, not fixed hues — a gold ring inside the
+   Synthwave palette read as a stray colour. */
+.lb-row.top1 .av{background:linear-gradient(140deg,var(--accent-2-lift),var(--accent-2));
+  color:var(--on-accent-2);border-color:transparent;
+  box-shadow:0 0 0 2px color-mix(in srgb,var(--accent-2) 34%,transparent)}
+.lb-row.top2 .av{background:linear-gradient(140deg,var(--accent),var(--accent-deep));
+  box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 28%,transparent)}
+.lb-row.top3 .av{background:linear-gradient(140deg,
+  color-mix(in srgb,var(--d-other) 78%,#fff),var(--d-other));
+  box-shadow:0 0 0 2px color-mix(in srgb,var(--d-other) 26%,transparent)}
+.who{min-width:0}
+.who .nm{font-size:13.5px;font-weight:600;white-space:nowrap;overflow:hidden;
+  text-overflow:ellipsis}
+.who .mk{color:var(--muted);font-size:11px;white-space:nowrap;overflow:hidden;
+  text-overflow:ellipsis;margin-top:1px}
+.setbar{height:9px;background:rgba(255,255,255,.07);border-radius:999px;overflow:hidden}
+.setbar>i{display:block;height:100%;border-radius:999px;
+  background:linear-gradient(90deg,var(--accent-deep),var(--accent))}
+.lb-row.top1 .setbar>i{background:linear-gradient(90deg,var(--accent-2),
+  var(--accent-2-lift))}
+.num{text-align:right;font-size:14px;font-weight:700}
+.num.dim{font-size:12.5px;font-weight:600;color:var(--ink-2)}
+.pct{text-align:right;font-size:12.5px;font-weight:650;color:var(--ink-2)}
+
+/* ---------- charts ---------- */
+.trend{display:flex;flex-direction:column;min-height:290px}
+.legend{display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+.legend span{display:flex;align-items:center;gap:6px;color:var(--ink-2);
+  font-size:11.5px;font-weight:600}
+.legend i{width:11px;height:3px;border-radius:2px;display:block}
+.chart-wrap{position:relative;flex:1;min-height:210px}
+svg.chart{display:block;width:100%;height:100%;overflow:visible}
+.gridline{stroke:rgba(255,255,255,.055);stroke-width:1}
+.axis-t{fill:var(--muted);font-size:10.5px}
+.tip{
+  position:absolute;pointer-events:none;opacity:0;transform:translate(-50%,-118%);
+  background:var(--pop);border:1px solid var(--line-2);border-radius:9px;
+  padding:8px 11px;font-size:11.5px;white-space:nowrap;z-index:5;
+  box-shadow:0 10px 26px rgba(0,0,0,.5);transition:opacity .1s;
+}
+.tip .t-d{color:var(--muted);font-size:10.5px;margin-bottom:4px}
+.tip .t-r{display:flex;align-items:center;gap:7px;margin-top:2px}
+.tip .t-r i{width:8px;height:8px;border-radius:2px}
+.tip .t-r b{margin-left:auto;padding-left:14px}
+
+/* ---------- bar lists ---------- */
+.blist{display:flex;flex-direction:column;gap:9px}
+.brow{display:grid;grid-template-columns:1fr 46px;gap:10px;align-items:center;
+  cursor:default}
+.brow .bl{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--ink-2);
+  min-width:0}
+.brow .bl b{color:var(--ink);font-weight:600;white-space:nowrap;overflow:hidden;
+  text-overflow:ellipsis}
+.btrack{grid-column:1/-1;height:8px;background:rgba(255,255,255,.06);
+  border-radius:999px;overflow:hidden;margin-top:-3px}
+.btrack>i{display:block;height:100%;border-radius:999px;transition:width .3s}
+.brow .bv{text-align:right;font-size:12.5px;font-weight:700}
+.dot{width:8px;height:8px;border-radius:2px;flex:0 0 8px}
+
+/* ---------- recent ---------- */
+.recent{grid-column:span 12}
+table{width:100%;border-collapse:collapse}
+th{
+  text-align:left;color:var(--muted);font-size:10.5px;font-weight:700;
+  letter-spacing:.9px;text-transform:uppercase;padding:0 10px 9px;
+  border-bottom:1px solid var(--line);white-space:nowrap;
+}
+td{padding:9px 10px;font-size:12.5px;border-bottom:1px solid rgba(255,255,255,.04)}
+tbody tr:hover{background:rgba(255,255,255,.035)}
+td.r{text-align:right}
+.tag{display:inline-flex;align-items:center;gap:6px;font-weight:650;font-size:12px}
+.empty{color:var(--muted);text-align:center;padding:30px 0;font-size:12.5px}
+.note{color:var(--muted);font-size:11px;margin-top:10px;line-height:1.5}
+
+/* ---------- responsive ---------- */
+@media (max-width:1250px){
+  .col-main,.col-side{grid-column:span 12}
+  /* Side-by-side once the side column is full width, so it is not a long
+     ribbon of three stacked cards. */
+  .col-side{flex-direction:row;flex-wrap:wrap}
+  .col-side>.card{flex:1 1 300px}
+}
+@media (max-width:900px){
+  .kpis{grid-template-columns:repeat(2,1fr)}
+  .kpi{border-bottom:1px solid var(--line)}
+  .col-side{flex-direction:column}
+  .rail{display:none}
+  .main{padding:16px 14px 40px}
+  .lb-row,.lb-head{grid-template-columns:34px 30px 1fr 56px 46px;gap:8px}
+  /* Drop the bar and the issue-% column together with their headers, so the
+     row still has exactly as many children as the grid has tracks. */
+  .lb-row>.setbar,.lb-head>.h-bar,.lb-row>.pct,.lb-head>.h-mv{display:none}
+}
+</style>
+</head>
+<body>
+
+<div class="shell">
+  <nav class="rail" aria-label="Sections">
+    <div class="logo">A</div>
+    <button class="on" title="Scoreboard"><svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg></button>
+    <button title="Leaderboard"><svg viewBox="0 0 24 24"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0zM7 6H4v2a3 3 0 0 0 3 3M17 6h3v2a3 3 0 0 1-3 3"/></svg></button>
+    <button title="Markets"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a15 15 0 0 1 0 18a15 15 0 0 1 0-18"/></svg></button>
+    <button title="Results"><svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg></button>
+  </nav>
+
+  <div class="main">
+    <header>
+      <div class="brand">
+        <h1 id="ttl">AVENGERS</h1>
+        <p id="sub">Outbound Set Performance</p>
+      </div>
+      <div class="spacer"></div>
+      <div class="controls">
+        <div class="pills" id="periods" role="tablist"></div>
+        <div class="dr">
+          <button class="pill" id="dr-btn" aria-haspopup="dialog"
+                  aria-expanded="false"><span id="dr-label">Date range</span></button>
+          <div class="dr-pop" id="dr-pop" hidden role="dialog" aria-label="Custom date range">
+            <label>From<input type="date" id="dr-from"></label>
+            <label>To<input type="date" id="dr-to"></label>
+            <div class="dr-act">
+              <button class="ghost" id="dr-clear" type="button">Clear</button>
+              <button class="go" id="dr-apply" type="button">Apply</button>
+            </div>
+            <div class="dr-msg" id="dr-msg"></div>
+          </div>
+        </div>
+        <select class="pill" id="market" aria-label="Filter by market"></select>
+        <div class="themes" id="themes" role="group" aria-label="Colour theme"></div>
+        <div class="stamp">
+          <div>Updated <b id="stamp">—</b></div>
+          <div id="coverage">—</div>
+        </div>
+      </div>
+    </header>
+
+    <div class="grid">
+      <div class="kpis" id="kpis"></div>
+
+      <div class="col-main">
+      <section class="card lb">
+        <div class="card-head">
+          <h2>Leaderboard <span class="sub" id="lb-sub">by appointments set</span></h2>
+          <div class="spacer"></div>
+          <span class="sub" style="color:var(--muted);font-size:11px" id="lb-count"></span>
+        </div>
+        <div class="lb-head">
+          <div>#</div><div></div><div>Agent</div><div class="h-bar"></div>
+          <div style="text-align:right">Sets</div>
+          <div style="text-align:right">Sales</div>
+          <div class="h-mv" style="text-align:right">Issue %</div>
+        </div>
+        <div class="lb-rows" id="lb"></div>
+        <p class="note" id="lb-note"></p>
+      </section>
+
+      <section class="card trend">
+        <div class="card-head">
+          <h2>Set &amp; Issue Trend <span class="sub" id="trend-sub"></span></h2>
+          <div class="spacer"></div>
+          <div class="legend">
+            <span><i style="background:var(--d-sets)"></i>Sets</span>
+            <span><i style="background:var(--d-issued)"></i>Issued</span>
+          </div>
+        </div>
+        <div class="chart-wrap" id="trend-wrap">
+          <svg class="chart" id="trend-svg" role="img" aria-label="Sets and issued demos over time"></svg>
+          <div class="tip" id="trend-tip"></div>
+        </div>
+      </section>
+      </div><!-- /col-main -->
+
+      <div class="col-side">
+      <section class="card mix">
+        <div class="card-head"><h2>Outcome Mix <span class="sub" id="mix-sub"></span></h2></div>
+        <div class="blist" id="mix"></div>
+        <p class="note">Issued = a rep stood in the home (Sale or Demo No Sale).</p>
+      </section>
+
+      <section class="card mkt">
+        <div class="card-head"><h2>Markets <span class="sub">sets · issue rate</span></h2></div>
+        <div class="blist" id="mkt"></div>
+      </section>
+
+      <section class="card goal">
+        <div class="card-head">
+          <h2>Race to Goal <span class="sub" id="goal-sub"></span></h2>
+        </div>
+        <div class="blist" id="goal"></div>
+      </section>
+      </div><!-- /col-side -->
+
+      <section class="card recent">
+        <div class="card-head">
+          <h2>Latest Results <span class="sub">appointments that have run</span></h2>
+        </div>
+        <div style="overflow-x:auto">
+          <table>
+            <thead><tr>
+              <th>Appt date</th><th>Agent</th><th>Market</th><th>Slot</th>
+              <th>Outcome</th><th class="r">Set on</th>
+            </tr></thead>
+            <tbody id="recent"></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  </div>
+</div>
+
+<script src="data.js"></script>
+<script>
+window.__AVENGERS_MAIN = function () {
+"use strict";
+const D = window.AV;
+if (!D) { document.getElementById("lb").innerHTML =
+  '<p class="empty">No data loaded.</p>'; return; }
+
+/* ---------------------------------------------------------------- helpers */
+const $  = id => document.getElementById(id);
+const CSS = n => getComputedStyle(document.documentElement)
+                   .getPropertyValue(n).trim();
+/* Re-read on every render: the cache was resolved once at startup, so a theme
+   switch would repaint the chrome and leave every chart on the old colours. */
+let C = {};
+function readColors() {
+  C = {sets:CSS("--d-sets"), issued:CSS("--d-issued"), sale:CSS("--d-sale"),
+       dns:CSS("--d-dns"), other:CSS("--d-other"), muted:CSS("--muted"),
+       pos:CSS("--pos"), bg:CSS("--bg"),
+       barA:CSS("--accent-deep"), barB:CSS("--accent"),
+       hiA:CSS("--accent-2"), hiB:CSS("--accent-2-lift")};
+}
+readColors();
+
+const ISSUED   = new Set(D.issued_results   || ["Sale","DNS"]);
+const TERMINAL = new Set(D.terminal_results || []);
+const esc = s => String(s).replace(/[&<>"]/g, c =>
+  ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const pct = (a,b) => b ? (a/b*100) : 0;
+const fmtPct = (a,b) => b ? Math.round(pct(a,b)) + "%" : "—";
+const initials = n => n.split(/\s+/).filter(Boolean).slice(0,2)
+  .map(w => w[0].toUpperCase()).join("");
+
+/* Rows: [setterIx, marketIx, resultIx, apptDate, setDate, hour, cancelledSale] */
+const R = D.rows.map(r => ({
+  agent: D.setters[r[0]], market: D.markets[r[1]], result: D.results[r[2]],
+  appt: r[3], set: r[4], hour: r[5], csale: !!r[6], setHour: r[7] || 0
+}));
+
+const todayISO = (() => {
+  const g = D.generated_at || "";
+  return /^\d{4}-\d{2}-\d{2}/.test(g) ? g.slice(0,10)
+       : new Date().toISOString().slice(0,10);
+})();
+const dayAdd = (iso, n) => {
+  const d = new Date(iso + "T12:00:00"); d.setDate(d.getDate() + n);
+  return d.toISOString().slice(0,10);
+};
+const mondayOf = iso => {
+  const d = new Date(iso + "T12:00:00");
+  return dayAdd(iso, -((d.getDay() + 6) % 7));
+};
+const prettyDate = iso => {
+  if (!iso) return "—";
+  const d = new Date(iso + "T12:00:00");
+  return d.toLocaleDateString(undefined,{month:"short",day:"numeric"});
+};
+const slot = h => h ? ((h % 12) || 12) + (h < 12 ? "am" : "pm") : "—";
+/* slot() reports "—" for 0; the axis needs a real label for midnight. */
+const hourLabel = h => ((h % 12) || 12) + (h < 12 ? "am" : "pm");
+
+/* --------------------------------------------------------------- periods */
+/* A set belongs to the period it was MADE in — that is the agent's work.
+   Its outcome may land later; the cohort's issue rate is reported against
+   the part of that cohort E+ has already resulted. */
+/* Earliest set on the board. "All Time" MUST start here, not at some
+   sentinel: a year-0 floor makes buckets() spread ~740,000 empty days across
+   the trend chart's 26 columns. */
+const minSetDate = R.reduce((m, r) => (r.set && r.set < m) ? r.set : m,
+                            todayISO);
+const PERIODS = {
+  today: {label:"Today",      from: () => todayISO},
+  week:  {label:"This Week",  from: () => mondayOf(todayISO)},
+  month: {label:"This Month", from: () => todayISO.slice(0,7) + "-01"},
+  d30:   {label:"30 Days",    from: () => dayAdd(todayISO, -29)},
+  all:   {label:"All Time",   from: () => minSetDate}
+};
+let period = "d30", market = "__all";
+let custom = null;                    // {from, to} while a date range is active
+const periodLabel = () => (period === "custom" && custom)
+  ? prettyDate(custom.from) + " – " + prettyDate(custom.to)
+  : PERIODS[period].label;
+
+function span(key) {
+  if (key === "custom" && custom) {
+    const {from, to} = custom;
+    const days = Math.round((new Date(to) - new Date(from)) / 864e5) + 1;
+    const prevTo = dayAdd(from, -1), prevFrom = dayAdd(prevTo, -(days - 1));
+    return {from, to, prevFrom, prevTo};
+  }
+  const from = PERIODS[key].from(), to = todayISO;
+  let prevFrom, prevTo;
+  if (key === "all") {
+    prevFrom = prevTo = null;
+  } else if (key === "month") {
+    /* Month-to-date compares against the SAME slice of last month, not the
+       whole of it — on the 1st, one day vs one day. Comparing 1 day to a
+       full month would read as a catastrophic drop every month. */
+    const d = new Date(from + "T12:00:00"); d.setMonth(d.getMonth() - 1);
+    prevFrom = d.toISOString().slice(0,10);
+    const days = Math.round((new Date(to) - new Date(from)) / 864e5);
+    prevTo = dayAdd(prevFrom, days);
+  } else {
+    const days = Math.round((new Date(to) - new Date(from)) / 864e5) + 1;
+    prevTo = dayAdd(from, -1); prevFrom = dayAdd(prevTo, -(days - 1));
+  }
+  return {from, to, prevFrom, prevTo};
+}
+
+const inMarket = r => market === "__all" || r.market === market;
+const slice = (from, to) =>
+  R.filter(r => r.set >= from && r.set <= to && inMarket(r));
+
+/* ------------------------------------------------------------- aggregates */
+function agg(rows) {
+  const o = {sets: rows.length, issued: 0, sales: 0, resulted: 0,
+             cancelledSales: 0, byResult: {}};
+  for (const r of rows) {
+    o.byResult[r.result] = (o.byResult[r.result] || 0) + 1;
+    if (TERMINAL.has(r.result)) o.resulted++;
+    if (ISSUED.has(r.result))   o.issued++;
+    if (r.result === "Sale")  { o.sales++; if (r.csale) o.cancelledSales++; }
+  }
+  return o;
+}
+
+/* ------------------------------------------------------------------ chart */
+/* Catmull-Rom -> cubic bezier. Control points are CLAMPED to the plot band:
+   outbound sets drop to zero every weekend, and an unclamped spline overshoots
+   those V-shapes below the axis, drawing negative appointments. */
+function smoothPath(pts, yMin, yMax) {
+  if (pts.length < 2) return pts.length ? `M${pts[0][0]},${pts[0][1]}` : "";
+  const cy = y => (yMin === undefined) ? y : Math.max(yMin, Math.min(yMax, y));
+  let d = `M${pts[0][0]},${pts[0][1]}`;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const p0 = pts[i - 1] || pts[i], p1 = pts[i],
+          p2 = pts[i + 1], p3 = pts[i + 2] || p2;
+    const t = 0.16;
+    d += ` C${p1[0] + (p2[0]-p0[0])*t},${cy(p1[1] + (p2[1]-p0[1])*t)}` +
+         ` ${p2[0] - (p3[0]-p1[0])*t},${cy(p2[1] - (p3[1]-p1[1])*t)}` +
+         ` ${p2[0]},${p2[1]}`;
+  }
+  return d;
+}
+
+function sparkline(vals, color) {
+  const w = 100, h = 34, n = vals.length;
+  if (!n) return "";
+  const max = Math.max(1, ...vals);
+  const pts = vals.map((v,i) => [n === 1 ? w : i/(n-1)*w, h - 3 - (v/max)*(h-8)]);
+  const id = "sg" + Math.random().toString(36).slice(2,8);
+  return `<svg class="k-spark" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none"
+    aria-hidden="true"><defs><linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="${color}" stop-opacity=".38"/>
+    <stop offset="1" stop-color="${color}" stop-opacity="0"/></linearGradient></defs>
+    <path d="${smoothPath(pts, 0, h)} L${w},${h} L0,${h} Z" fill="url(#${id})"/>
+    <path d="${smoothPath(pts, 0, h)}" fill="none" stroke="${color}" stroke-width="2"
+      stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+}
+
+/* Daily buckets across the visible span, aggregated to keep ~<=30 columns. */
+function buckets(from, to) {
+  /* A single day plotted as one daily bucket is a single point — no line, no
+     shape, nothing to read. Plot the day building up hour by hour instead,
+     which is also what a floor board wants ("12 sets by 2pm"). */
+  if (from === to) {
+    const day = R.filter(r => r.set === from && inMarket(r));
+    let lo = 8, hi = 18;
+    if (day.length) {
+      lo = Math.min(...day.map(r => r.setHour));
+      hi = Math.max(...day.map(r => r.setHour));
+    }
+    if (hi - lo < 5) {                       // keep the axis from being a stub
+      lo = Math.max(0, Math.min(lo, 8));
+      hi = Math.min(23, Math.max(hi, lo + 5));
+    }
+    const out = [];
+    for (let h = lo; h <= hi; h++) {
+      const k = agg(day.filter(r => r.setHour === h));
+      out.push({from, to, step:1, sets:k.sets, issued:k.issued, sales:k.sales,
+                resulted:k.resulted, label:hourLabel(h), tipLabel:hourLabel(h)});
+    }
+    return out;
+  }
+  const days = Math.max(1, Math.round((new Date(to) - new Date(from))/864e5) + 1);
+  const step = days <= 31 ? 1 : Math.ceil(days / 26);
+  const out = [];
+  for (let i = 0; i < days; i += step) {
+    const a = dayAdd(from, i), b = dayAdd(from, Math.min(i + step - 1, days - 1));
+    const rows = R.filter(r => r.set >= a && r.set <= b && inMarket(r));
+    const k = agg(rows);
+    out.push({from:a, to:b, step, sets:k.sets, issued:k.issued,
+              sales:k.sales, resulted:k.resulted,
+              label: prettyDate(a),
+              tipLabel: step > 1 ? prettyDate(a) + " – " + prettyDate(b)
+                                 : prettyDate(a)});
+  }
+  return out;
+}
+
+function drawTrend(bk) {
+  const svg = $("trend-svg"), wrap = $("trend-wrap"), tip = $("trend-tip");
+  const W = wrap.clientWidth || 460, H = Math.max(210, wrap.clientHeight || 210);
+  const pad = {t:12, r:10, b:24, l:30};
+  const iw = Math.max(10, W - pad.l - pad.r), ih = Math.max(10, H - pad.t - pad.b);
+  const n = bk.length;
+  const max = Math.max(1, ...bk.map(b => b.sets));
+  const nice = max <= 5 ? 5 : Math.ceil(max / 5) * 5;
+  const X = i => pad.l + (n === 1 ? iw/2 : i/(n-1)*iw);
+  const Y = v => pad.t + ih - (v/nice)*ih;
+
+  let g = "";
+  for (let i = 0; i <= 4; i++) {
+    const y = pad.t + ih - (i/4)*ih, v = Math.round(nice*i/4);
+    g += `<line class="gridline" x1="${pad.l}" y1="${y}" x2="${W-pad.r}" y2="${y}"/>
+          <text class="axis-t" x="${pad.l-7}" y="${y+3.5}" text-anchor="end">${v}</text>`;
+  }
+  const every = Math.max(1, Math.ceil(n/6));
+  for (let i = 0; i < n; i += every) {
+    g += `<text class="axis-t" x="${X(i)}" y="${H-7}" text-anchor="middle">${bk[i].label}</text>`;
+  }
+
+  const ps = bk.map((b,i) => [X(i), Y(b.sets)]);
+  const pi = bk.map((b,i) => [X(i), Y(b.issued)]);
+  const CL = [pad.t, pad.t + ih];
+  const area = `${smoothPath(ps, CL[0], CL[1])} L${X(n-1)},${pad.t+ih} L${X(0)},${pad.t+ih} Z`;
+
+  svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+  svg.innerHTML = `
+    <defs><linearGradient id="tg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="${C.sets}" stop-opacity=".34"/>
+      <stop offset="1" stop-color="${C.sets}" stop-opacity="0"/></linearGradient></defs>
+    ${g}
+    <path d="${area}" fill="url(#tg)"/>
+    <path d="${smoothPath(pi, CL[0], CL[1])}" fill="none" stroke="${C.issued}" stroke-width="2"
+      stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="${smoothPath(ps, CL[0], CL[1])}" fill="none" stroke="${C.sets}" stroke-width="2"
+      stroke-linecap="round" stroke-linejoin="round"/>
+    <line id="cross" x1="0" y1="${pad.t}" x2="0" y2="${pad.t+ih}"
+      stroke="${C.muted}" stroke-width="1" opacity="0"/>
+    <circle id="ds" r="4.5" fill="${C.sets}" stroke="${C.bg}" stroke-width="2" opacity="0"/>
+    <circle id="di" r="4.5" fill="${C.issued}" stroke="${C.bg}" stroke-width="2" opacity="0"/>`;
+
+  const cross = svg.querySelector("#cross"), ds = svg.querySelector("#ds"),
+        di = svg.querySelector("#di");
+  function move(ev) {
+    const rect = svg.getBoundingClientRect();
+    const x = (ev.clientX - rect.left) / rect.width * W;
+    let i = n === 1 ? 0 : Math.round((x - pad.l)/iw*(n-1));
+    i = Math.max(0, Math.min(n-1, i));
+    const b = bk[i];
+    cross.setAttribute("x1", X(i)); cross.setAttribute("x2", X(i));
+    cross.setAttribute("opacity",".45");
+    ds.setAttribute("cx", X(i)); ds.setAttribute("cy", Y(b.sets)); ds.setAttribute("opacity","1");
+    di.setAttribute("cx", X(i)); di.setAttribute("cy", Y(b.issued)); di.setAttribute("opacity","1");
+    tip.innerHTML = `<div class="t-d">${b.tipLabel}</div>
+      <div class="t-r"><i style="background:${C.sets}"></i>Sets<b>${b.sets}</b></div>
+      <div class="t-r"><i style="background:${C.issued}"></i>Issued<b>${b.issued}</b></div>`;
+    tip.style.left = (X(i)/W*rect.width) + "px";
+    tip.style.top  = (Y(Math.max(b.sets,b.issued))/H*rect.height) + "px";
+    tip.style.opacity = "1";
+  }
+  svg.onmousemove = move;
+  svg.onmouseleave = () => {
+    tip.style.opacity = "0"; cross.setAttribute("opacity","0");
+    ds.setAttribute("opacity","0"); di.setAttribute("opacity","0");
+  };
+}
+
+/* ------------------------------------------------------------------ paint */
+const resultColor = r =>
+  r === "Sale" ? C.sale : r === "DNS" ? C.dns :
+  TERMINAL.has(r) ? C.other : "rgba(255,255,255,.22)";
+
+function deltaHTML(cur, prev, suffix, invert) {
+  if (prev === null || prev === undefined || cur === null)
+    return `<span class="flat">—</span> <span class="cmp">no comparison</span>`;
+  const d = cur - prev;
+  const cls = d === 0 ? "flat" : ((d > 0) !== !!invert ? "up" : "down");
+  const arrow = d === 0 ? "±" : d > 0 ? "▲" : "▼";
+  const shown = Math.abs(Math.round(d * 10) / 10) + (suffix || "");
+  return `<span class="${cls}">${arrow} ${shown}</span> <span class="cmp">vs prev</span>`;
+}
+
+function render() {
+  readColors();
+  const s = span(period);
+  const cur = slice(s.from, s.to);
+  const prev = s.prevFrom ? slice(s.prevFrom, s.prevTo) : null;
+  const a = agg(cur), p = prev ? agg(prev) : null;
+
+  /* --- KPIs --- */
+  const bk = buckets(s.from, s.to);
+  /* Each sparkline plots ITS OWN measure — a rate tile showing a count series
+     would misread as the rate moving. */
+  const rate = (n, d) => d ? n / d * 100 : null;
+  /* Rate sparklines run CUMULATIVE. A per-bucket rate on a handful of daily
+     appointments swings 0-100% on noise and reads as wild volatility that
+     isn't there; the running rate shows the trend the tile is claiming. */
+  const running = (num, den) => {
+    let n = 0, d = 0;
+    return bk.map(b => { n += num(b); d += den(b); return d ? n / d * 100 : 0; });
+  };
+  const kpi = [
+    {k:"Appointments Set", v:a.sets,   raw:a.sets,
+     d:p ? p.sets : null,   sp:bk.map(b => b.sets),   c:C.sets},
+    {k:"Issued Demos",     v:a.issued, raw:a.issued,
+     d:p ? p.issued : null, sp:bk.map(b => b.issued), c:C.issued},
+    {k:"Sales",            v:a.sales,  raw:a.sales,
+     d:p ? p.sales : null,  sp:bk.map(b => b.sales),  c:C.sale,
+     /* ~45% of this team's sales later cancel — reporting the gross number
+        alone would overstate what actually closed. */
+     foot:a.cancelledSales ? a.cancelledSales + " later cancelled" : ""},
+    {k:"Issue Rate", v:fmtPct(a.issued, a.resulted),
+     raw:rate(a.issued, a.resulted),
+     d:p ? rate(p.issued, p.resulted) : null, suffix:"pt",
+     sp:running(b => b.issued, b => b.resulted), c:C.issued},
+    {k:"Close Rate", v:fmtPct(a.sales, a.issued),
+     raw:rate(a.sales, a.issued),
+     d:p ? rate(p.sales, p.issued) : null, suffix:"pt",
+     sp:running(b => b.sales, b => b.issued), c:C.sale}
+  ];
+  $("kpis").innerHTML = kpi.map(t => `
+    <div class="kpi">
+      <div class="k-label">${t.k}</div>
+      <div class="k-row">
+        <div class="k-val mono">${t.v}</div>
+        ${sparkline(t.sp, t.c)}
+      </div>
+      <div class="k-delta">${deltaHTML(t.raw, t.d, t.suffix, false)}</div>
+      ${t.foot ? `<div class="k-foot">${t.foot}</div>` : ""}
+    </div>`).join("");
+
+  /* --- leaderboard --- */
+  const agents = new Map();
+  for (const r of cur) {
+    if (!agents.has(r.agent)) agents.set(r.agent, []);
+    agents.get(r.agent).push(r);
+  }
+  const prevRank = new Map();
+  if (prev) {
+    const pm = new Map();
+    for (const r of prev) pm.set(r.agent, (pm.get(r.agent) || 0) + 1);
+    [...pm.entries()].sort((x,y) => y[1]-x[1])
+      .forEach(([n],i) => prevRank.set(n, i+1));
+  }
+  const board = [...agents.entries()]
+    .map(([name, rows]) => ({name, ...agg(rows),
+      markets:[...new Set(rows.map(r => r.market))]}))
+    .sort((x,y) => y.sets - x.sets || y.sales - x.sales);
+
+  const topSets = board.length ? board[0].sets : 1;
+  $("lb").innerHTML = board.length ? board.map((b,i) => {
+    const rank = i + 1;
+    const pr = prevRank.get(b.name);
+    let mv = `<span class="flat">·</span>`;
+    if (pr) {
+      const d = pr - rank;
+      mv = d === 0 ? `<span class="flat">–</span>`
+         : d > 0 ? `<span class="up">▲${d}</span>`
+                 : `<span class="down">▼${-d}</span>`;
+    } else if (prev) mv = `<span class="up">NEW</span>`;
+    return `
+    <div class="lb-row ${rank<=3 ? "top"+rank : ""}">
+      <div class="rank mono">${rank}${prev ? `<span class="mv">${mv}</span>` : ""}</div>
+      <div class="av">${esc(initials(b.name))}</div>
+      <div class="who">
+        <div class="nm">${esc(b.name)}</div>
+        <div class="mk">${esc(b.markets.slice(0,3).join(" · "))}${b.markets.length>3?" +"+(b.markets.length-3):""}</div>
+      </div>
+      <div class="setbar" title="${b.sets} sets"><i style="width:${Math.max(3, b.sets/topSets*100)}%"></i></div>
+      <div class="num mono">${b.sets}</div>
+      <div class="num dim mono">${b.sales}</div>
+      <div class="pct mono" title="${b.issued} issued of ${b.resulted} resulted">${fmtPct(b.issued,b.resulted)}</div>
+    </div>`;
+  }).join("") : `<p class="empty">No appointments set in this period.</p>`;
+
+  $("lb-count").textContent = board.length
+    ? board.length + " agents · " + a.sets + " sets" : "";
+  $("lb-sub").textContent = "by appointments set · " + periodLabel().toLowerCase();
+  const unresulted = a.sets - a.resulted;
+  $("lb-note").textContent = unresulted
+    ? `Issue % counts only the ${a.resulted} set${a.resulted===1?"":"s"} E+ has already resulted; `
+      + `${unresulted} in this period have not run yet or are still open.`
+    : "";
+
+  /* --- trend --- */
+  $("trend-sub").textContent = (s.from === s.to) ? "by hour" : "by day";
+  drawTrend(bk);
+
+  /* --- outcome mix --- */
+  const order = (D.result_order || []).filter(r => a.byResult[r]);
+  const others = Object.keys(a.byResult).filter(r => !order.includes(r));
+  const mixRows = order.concat(others);
+  const mixMax = Math.max(1, ...mixRows.map(r => a.byResult[r]));
+  $("mix-sub").textContent = a.sets + " sets";
+  $("mix").innerHTML = mixRows.length ? mixRows.map(r => `
+    <div class="brow" title="${a.byResult[r]} of ${a.sets}">
+      <div class="bl"><span class="dot" style="background:${resultColor(r)}"></span>
+        <b>${esc(r)}</b></div>
+      <div class="bv mono">${a.byResult[r]}</div>
+      <div class="btrack"><i style="width:${a.byResult[r]/mixMax*100}%;
+        background:${resultColor(r)}"></i></div>
+    </div>`).join("") : `<p class="empty">Nothing yet.</p>`;
+
+  /* --- markets (magnitude -> single hue) --- */
+  const mk = new Map();
+  for (const r of cur) {
+    if (!mk.has(r.market)) mk.set(r.market, []);
+    mk.get(r.market).push(r);
+  }
+  const mkRows = [...mk.entries()].map(([name, rows]) => ({name, ...agg(rows)}))
+    .sort((x,y) => y.sets - x.sets).slice(0, 9);
+  const mkMax = Math.max(1, ...mkRows.map(m => m.sets));
+  $("mkt").innerHTML = mkRows.length ? mkRows.map((m,i) => `
+    <div class="brow" title="${m.issued} issued of ${m.resulted} resulted">
+      <div class="bl"><b>${esc(m.name)}</b>
+        <span style="color:var(--muted);font-size:11px">${fmtPct(m.issued,m.resulted)}</span></div>
+      <div class="bv mono">${m.sets}</div>
+      <div class="btrack"><i style="width:${m.sets/mkMax*100}%;background:${
+        i === 0 ? "linear-gradient(90deg,"+C.hiA+","+C.hiB+")"
+                : "linear-gradient(90deg,"+C.barA+","+C.barB+")"}"></i></div>
+    </div>`).join("") : `<p class="empty">Nothing yet.</p>`;
+
+  /* --- race to goal (calendar month, regardless of the period pill) --- */
+  const goal = D.goal_per_agent_month || 40;
+  const mStart = todayISO.slice(0,7) + "-01";
+  const mRows = slice(mStart, todayISO);
+  const gm = new Map();
+  for (const r of mRows) gm.set(r.agent, (gm.get(r.agent) || 0) + 1);
+  const gRows = [...gm.entries()].sort((x,y) => y[1]-x[1]).slice(0, 9);
+  const dayOfMonth = +todayISO.slice(8,10);
+  const daysInMonth = new Date(+todayISO.slice(0,4), +todayISO.slice(5,7), 0).getDate();
+  const pace = Math.round(goal * dayOfMonth / daysInMonth);
+  $("goal-sub").textContent = goal + "/mo · on pace = " + pace;
+  $("goal").innerHTML = gRows.length ? gRows.map(([name, n]) => {
+    const done = n >= goal, ahead = n >= pace;
+    const col = done ? "linear-gradient(90deg,"+C.sale+","+C.pos+")"
+              : ahead ? "linear-gradient(90deg,"+C.barA+","+C.barB+")"
+              : "linear-gradient(90deg,"+C.other+",color-mix(in srgb,"+C.other+" 65%,#fff))";
+    return `
+    <div class="brow" title="${n} of ${goal} this month${ahead?" · on or ahead of pace":" · behind pace"}">
+      <div class="bl"><b>${esc(name)}</b>${done?'<span style="color:var(--pos);font-size:11px">goal ✓</span>':""}</div>
+      <div class="bv mono">${n}</div>
+      <div class="btrack"><i style="width:${Math.min(100, n/goal*100)}%;background:${col}"></i></div>
+    </div>`;
+  }).join("") : `<p class="empty">No sets this month yet.</p>`;
+
+  /* --- latest results --- */
+  const done = R.filter(r => inMarket(r) && TERMINAL.has(r.result))
+    .sort((x,y) => y.appt.localeCompare(x.appt)).slice(0, 14);
+  $("recent").innerHTML = done.length ? done.map(r => `
+    <tr>
+      <td class="mono">${prettyDate(r.appt)}</td>
+      <td>${esc(r.agent)}</td>
+      <td style="color:var(--ink-2)">${esc(r.market)}</td>
+      <td class="mono" style="color:var(--muted)">${slot(r.hour)}</td>
+      <td><span class="tag" style="color:${resultColor(r.result)}">
+        <span class="dot" style="background:${resultColor(r.result)}"></span>
+        ${esc(r.result)}${r.csale ? " (cancelled)" : ""}</span></td>
+      <td class="r mono" style="color:var(--muted)">${prettyDate(r.set)}</td>
+    </tr>`).join("")
+    : `<tr><td colspan="6" class="empty">No results yet.</td></tr>`;
+}
+
+/* ------------------------------------------------------------------ chrome */
+$("ttl").textContent = D.title || "AVENGERS";
+$("sub").textContent = D.subtitle || "";
+$("stamp").textContent = D.generated_at || "—";
+const m = D.meta || {};
+$("coverage").textContent = m.verified_in_eplus != null
+  ? m.verified_in_eplus + " of " + m.total_items + " verified in E+"
+  : "";
+
+/* ---------------------------------------------------------------- themes */
+const THEMES = [
+  {id:"nightshade", name:"Nightshade", sw:["#ff0f6b","#ec6400","#150e1d"]},
+  {id:"dusk",       name:"Dusk",       sw:["#f67e7d","#ffb997","#0b032d"]},
+  {id:"synthwave",  name:"Synthwave",  sw:["#ee227d","#30c0b7","#3b0855"]}
+];
+function applyTheme(id, rerender) {
+  const t = THEMES.find(x => x.id === id) || THEMES[0];
+  document.documentElement.dataset.theme = t.id;
+  [...$("themes").children].forEach(b => b.classList.toggle("on", b.dataset.t === t.id));
+  try { localStorage.setItem("avengers-theme", t.id); } catch (e) {}
+  if (rerender) render();
+}
+$("themes").innerHTML = THEMES.map(t =>
+  `<button data-t="${t.id}" title="${t.name}" aria-label="${t.name} theme"
+     style="background:linear-gradient(135deg,${t.sw[0]} 0%,${t.sw[0]} 33%,
+       ${t.sw[1]} 33%,${t.sw[1]} 66%,${t.sw[2]} 66%)"></button>`).join("");
+$("themes").onclick = e => {
+  const b = e.target.closest("button"); if (!b) return;
+  applyTheme(b.dataset.t, true);
+};
+
+$("periods").innerHTML = Object.entries(PERIODS).map(([k,v]) =>
+  `<button data-p="${k}" class="${k===period?"on":""}" role="tab">${v.label}</button>`).join("");
+$("periods").onclick = e => {
+  const b = e.target.closest("button"); if (!b) return;
+  period = b.dataset.p;
+  clearCustom();
+  [...$("periods").children].forEach(x => x.classList.toggle("on", x === b));
+  render();
+};
+
+/* ---------------------------------------------------------- date range */
+const drBtn = $("dr-btn"), drPop = $("dr-pop"), drFrom = $("dr-from"),
+      drTo = $("dr-to"), drMsg = $("dr-msg"), drLabel = $("dr-label");
+drFrom.min = drTo.min = minSetDate;
+drFrom.max = drTo.max = todayISO;
+
+function clearCustom() {
+  custom = null;
+  drLabel.textContent = "Date range";
+  drBtn.classList.remove("active");
+}
+function closePop() {
+  drPop.hidden = true;
+  drBtn.setAttribute("aria-expanded", "false");
+}
+drBtn.onclick = e => {
+  e.stopPropagation();
+  const opening = drPop.hidden;
+  drPop.hidden = !opening;
+  drBtn.setAttribute("aria-expanded", String(opening));
+  if (opening) {
+    const s = span(period);
+    if (!drFrom.value) drFrom.value = s.from;
+    if (!drTo.value)   drTo.value   = s.to;
+    drFrom.focus();
+  }
+};
+drPop.onclick = e => e.stopPropagation();
+document.addEventListener("click", () => { if (!drPop.hidden) closePop(); });
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape" && !drPop.hidden) { closePop(); drBtn.focus(); }
+});
+$("dr-apply").onclick = () => {
+  let f = drFrom.value, t = drTo.value;
+  if (!f || !t) { drMsg.textContent = "Pick both dates."; return; }
+  if (f > t) { [f, t] = [t, f]; drFrom.value = f; drTo.value = t; }
+  custom = {from: f, to: t};
+  period = "custom";
+  [...$("periods").children].forEach(x => x.classList.remove("on"));
+  drLabel.textContent = prettyDate(f) + " – " + prettyDate(t);
+  drBtn.classList.add("active");
+  drMsg.textContent = "";
+  closePop();
+  render();
+};
+$("dr-clear").onclick = () => {
+  drFrom.value = ""; drTo.value = ""; drMsg.textContent = "";
+  clearCustom();
+  period = "d30";
+  [...$("periods").children].forEach(x => x.classList.toggle("on",
+    x.dataset.p === period));
+  closePop();
+  render();
+};
+
+const mkts = [...new Set(R.map(r => r.market))].sort();
+$("market").innerHTML = `<option value="__all">All markets</option>` +
+  mkts.map(x => `<option value="${esc(x)}">${esc(x)}</option>`).join("");
+$("market").onchange = e => { market = e.target.value; render(); };
+
+let rt; addEventListener("resize", () => {
+  clearTimeout(rt); rt = setTimeout(() => drawTrend(buckets(
+    span(period).from, span(period).to)), 140);
+});
+
+let storedTheme = "nightshade";
+try { storedTheme = localStorage.getItem("avengers-theme") || storedTheme; }
+catch (e) {}
+applyTheme(storedTheme, false);
+
+render();
+setTimeout(() => location.reload(), 10 * 60000);
+};  /* end __AVENGERS_MAIN */
+
+/* ============================================================
+   UNLOCK GATE — data.js ships encrypted at rest (window.AV_ENC:
+   zlib -> PBKDF2-SHA256 -> AES-256-GCM, written by
+   build_dashboard.py). Ask once per browser session and cache the
+   derived key in sessionStorage so the auto-reload stays silent.
+   A plaintext window.AV (local preview) boots with no prompt.
+   ============================================================ */
+(function () {
+  /* Apply the stored theme BEFORE the gate paints — otherwise the lock screen
+     flashes the default palette and then the dashboard appears in another. */
+  try {
+    const t = localStorage.getItem("avengers-theme");
+    if (t) document.documentElement.dataset.theme = t;
+  } catch (e) {}
+  const b64d = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
+  const b64e = buf => btoa(String.fromCharCode(...new Uint8Array(buf)));
+  let theKey = null;
+  async function inflate(buf) {
+    const ds = new DecompressionStream("deflate");
+    return new Response(new Blob([buf]).stream().pipeThrough(ds)).arrayBuffer();
+  }
+  async function toPayload(pt, zip) {
+    if (zip) pt = await inflate(pt);
+    return JSON.parse(new TextDecoder().decode(pt));
+  }
+  const boot = () => {
+    const l = document.getElementById("lockscreen");
+    if (l) l.remove();
+    window.__AVENGERS_MAIN();
+  };
+  const enc = window.AV_ENC;
+  if (!enc) { boot(); return; }
+
+  const ov = document.createElement("div"); ov.id = "lockscreen";
+  ov.style.cssText = "position:fixed;inset:0;z-index:9999;display:flex;" +
+    "align-items:center;justify-content:center;background:var(--bg);";
+  ov.innerHTML =
+    '<div style="width:330px;max-width:90vw;background:var(--pop);border:1px solid var(--line-2);' +
+    'border-radius:14px;padding:30px;font-family:system-ui,\'Segoe UI\',sans-serif;text-align:center;">' +
+    '<div style="width:46px;height:46px;margin:0 auto 14px;border-radius:12px;display:grid;place-items:center;' +
+    'background:linear-gradient(150deg,var(--accent),var(--accent-deep));color:#fff;font-weight:800;font-size:20px;">A</div>' +
+    '<div style="font-size:16px;font-weight:700;color:var(--ink);letter-spacing:1.5px;">AVENGERS</div>' +
+    '<div style="font-size:11.5px;color:var(--muted);margin:4px 0 18px;">Enter the team passphrase</div>' +
+    '<input id="lockpass" type="password" autocomplete="current-password" ' +
+    'style="width:100%;box-sizing:border-box;background:var(--bg);color:var(--ink);border:1px solid var(--line-2);' +
+    'border-radius:9px;padding:11px 13px;font-size:14px;outline:none;">' +
+    '<button id="lockgo" style="width:100%;margin-top:11px;background:linear-gradient(135deg,var(--accent-2-lift),var(--accent-2));' +
+    'color:var(--on-accent-2);border:0;border-radius:9px;padding:11px;font-size:13px;font-weight:700;cursor:pointer;">Unlock</button>' +
+    '<div id="lockmsg" style="font-size:11.5px;color:var(--neg);margin-top:11px;min-height:15px;"></div></div>';
+  document.body.appendChild(ov);
+  const inp = ov.querySelector("#lockpass"), btn = ov.querySelector("#lockgo"),
+        msg = ov.querySelector("#lockmsg");
+
+  async function decryptWith(key) {
+    const pt = await crypto.subtle.decrypt(
+      { name: "AES-GCM", iv: b64d(enc.nonce) }, key, b64d(enc.ct));
+    window.AV = await toPayload(pt, enc.zip);
+    theKey = key;
+  }
+  async function tryPass(pass) {
+    const km = await crypto.subtle.importKey("raw",
+      new TextEncoder().encode(pass), "PBKDF2", false, ["deriveKey"]);
+    const key = await crypto.subtle.deriveKey(
+      { name: "PBKDF2", salt: b64d(enc.salt), iterations: enc.iter, hash: "SHA-256" },
+      km, { name: "AES-GCM", length: 256 }, true, ["decrypt"]);
+    await decryptWith(key);
+    try { sessionStorage.setItem("avengers-key",
+      b64e(await crypto.subtle.exportKey("raw", key)) + "|" + enc.salt); } catch (e) {}
+  }
+  async function tryCached() {
+    let cached; try { cached = sessionStorage.getItem("avengers-key"); }
+    catch (e) { return false; }
+    if (!cached) return false;
+    const [raw, salt] = cached.split("|");
+    if (salt !== enc.salt) return false;      // passphrase/salt rotated
+    try {
+      const key = await crypto.subtle.importKey("raw", b64d(raw),
+        { name: "AES-GCM" }, false, ["decrypt"]);
+      await decryptWith(key);
+      return true;
+    } catch (e) { return false; }
+  }
+  async function submit() {
+    msg.textContent = ""; btn.disabled = true;
+    try { await tryPass(inp.value); boot(); }
+    catch (e) { btn.disabled = false; inp.value = "";
+      msg.textContent = "Wrong passphrase."; inp.focus(); }
+  }
+  btn.addEventListener("click", submit);
+  inp.addEventListener("keydown", e => { if (e.key === "Enter") submit(); });
+  setTimeout(function tick() {
+    if (!document.getElementById("lockscreen")) return;
+    if (inp.value) { setTimeout(tick, 30000); return; }
+    location.reload();
+  }, 10 * 60 * 1000);
+  if (!(window.crypto && crypto.subtle)) {
+    msg.textContent = "This browser can't decrypt here (needs https or localhost).";
+    return;
+  }
+  if (enc.zip && typeof DecompressionStream === "undefined") {
+    msg.textContent = "This browser is too old — please update it.";
+    return;
+  }
+  tryCached().then(ok => { if (ok) boot(); else inp.focus(); });
+})();
+</script>
+</body>
+</html>
